@@ -4,7 +4,8 @@ import { renderToString } from 'react-dom/server';
 import App from '../shared/App';
 import React from 'react';
 import serialize from 'serialize-javascript';
-import { fetchPopularRepos } from '../shared/api';
+import { matchPath, StaticRouter } from 'react-router-dom';
+import routes from '../shared/routes';
 
 const app = express();
 
@@ -12,20 +13,33 @@ app.use(cors());
 
 app.use(express.static('public'));
 
-app.use('*', (req, res, next) => {
-  fetchPopularRepos().then((data) => {
-    const markup = renderToString(<App data={data} />);
+app.get('*', (req, res, next) => {
+  const activeRoute = routes.find((route) => matchPath(req.url, route)) || {};
 
-    res.send(`
+  const promise = activeRoute.fetchInitialData
+    ? activeRoute.fetchInitialData()
+    : Promise.resolve();
+
+  promise
+    .then((data) => {
+      const context = { data };
+      const markup = renderToString(
+        <StaticRouter location={req.url} context={context}>
+          <App />
+        </StaticRouter>
+      );
+
+      res.send(`
           <!DOCTYPE html>
           <html lang="en">
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Document</title>
+            <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
             <script src="/bundle.js" defer></script>
             <script>window.__INITIAL_DATA__=${serialize(data)}</script>
-            <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+           
           </head>
           <body>
             <div id="app">${markup}</div>
@@ -35,7 +49,8 @@ app.use('*', (req, res, next) => {
           </body>
           </html>
   `);
-  });
+    })
+    .catch(next);
 });
 
 app.listen(3000, () => {

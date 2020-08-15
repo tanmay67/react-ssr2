@@ -1,6 +1,6 @@
 import fetch from 'isomorphic-fetch';
 
-export function fetchPopularRepos(language = 'all') {
+export function fetchPopularRepos() {
   const encodedURI = encodeURI(`https://jsonplaceholder.typicode.com/posts`);
 
   return fetch(encodedURI)
